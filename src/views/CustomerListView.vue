@@ -30,8 +30,25 @@ const editForm = ref({
   remarks: '',
 })
 
+const showAddModal = ref(false)
+const addForm = ref({
+  email: '',
+  brand: '',
+  tag: '',
+  remarks: '',
+})
+
 const emailList = ref([])
 const emailListWithAuth = ref([]) // 包含授权码的邮箱列表
+
+// 获取今日日期字符串 (YYYY-MM-DD)
+const getTodayDate = () => {
+  const today = new Date()
+  const year = today.getFullYear()
+  const month = String(today.getMonth() + 1).padStart(2, '0')
+  const day = String(today.getDate()).padStart(2, '0')
+  return `${year}-${month}-${day}`
+}
 
 // 加载邮箱列表（用于发送邮件时选择发件邮箱）
 const loadEmailList = async () => {
@@ -180,6 +197,76 @@ const selectedTag = computed(() => {
   return tags.length > 0 ? tags.join(', ') : '-'
 })
 
+// 打开新增客户弹窗
+const openAddModal = () => {
+  addForm.value = {
+    email: '',
+    brand: '',
+    tag: '',
+    remarks: '',
+  }
+  showAddModal.value = true
+  error.value = ''
+}
+
+// 关闭新增客户弹窗
+const closeAddModal = () => {
+  showAddModal.value = false
+  addForm.value = {
+    email: '',
+    brand: '',
+    tag: '',
+    remarks: '',
+  }
+}
+
+// 创建新客户
+const createCustomer = async () => {
+  if (!addForm.value.email) {
+    error.value = '请填写客户邮箱'
+    return
+  }
+
+  loading.value = true
+  error.value = ''
+  try {
+    const token = localStorage.getItem('authToken')
+    const resp = await fetch('http://localhost:3000/api/customers', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify([{
+        email: addForm.value.email,
+        brand: addForm.value.brand || '',
+        tag: addForm.value.tag || '',
+        add_date: getTodayDate(),
+        remarks: addForm.value.remarks || '',
+      }]),
+    })
+
+    if (!resp.ok) {
+      const errorData = await resp.json().catch(() => ({}))
+      throw new Error(errorData.message || '创建失败')
+    }
+
+    await loadCustomers()
+    closeAddModal()
+    error.value = ''
+  } catch (err) {
+    console.error('创建客户失败:', err)
+    error.value = err.message || '创建失败，请稍后重试'
+  } finally {
+    loading.value = false
+  }
+}
+
+// 新增客户（打开弹窗）
+const addNewCustomer = () => {
+  openAddModal()
+}
+
 // 打开发送邮件弹窗
 const openEmailModal = () => {
   if (selectedCustomers.value.size === 0) {
@@ -215,11 +302,8 @@ const sendEmail = async () => {
     const token = localStorage.getItem('authToken')
     const recipientEmails = selectedCustomersInfo.value.map((item) => item.email)
     
-    // 根据接口文档，单个发送使用 send，批量发送使用 send-bulk
-    const isBulk = recipientEmails.length > 1
-    const apiUrl = isBulk 
-      ? 'http://localhost:3000/api/email/send-bulk'
-      : 'http://localhost:3000/api/email/send'
+    // 根据接口文档，发送使用 send
+    const apiUrl = 'http://localhost:3000/api/email/send'
     
     // 根据接口文档构建请求体，email_list 始终是数组格式
     const requestBody = {
@@ -229,8 +313,6 @@ const sendEmail = async () => {
       subject: emailForm.value.subject,
       content: emailForm.value.content,
     }
-
-    console.log('发送邮件请求:', { apiUrl, requestBody, isBulk, recipientCount: recipientEmails.length })
 
     const resp = await fetch(apiUrl, {
       method: 'POST',
@@ -250,9 +332,8 @@ const sendEmail = async () => {
     console.log('发送邮件成功响应:', result)
 
     error.value = ''
-    const successMessage = isBulk 
-      ? `成功发送邮件给 ${recipientEmails.length} 个客户`
-      : '邮件发送成功'
+    const successMessage = `成功发送邮件给 ${recipientEmails.length} 个客户`
+  
     alert(successMessage)
     closeEmailModal()
   } catch (err) {
@@ -422,10 +503,12 @@ onMounted(() => {
       </div>
     </div>
 
-    <!-- 发送邮件按钮 -->
+    <!-- 操作按钮栏 -->
     <div class="action-bar">
+      <button class="btn ghost" type="button" @click="addNewCustomer">新增客户</button>
       <button class="btn primary" type="button" @click="openEmailModal">发送邮件</button>
     </div>
+
 
     <p v-if="error" class="error">{{ error }}</p>
 
@@ -537,6 +620,40 @@ onMounted(() => {
         </div>
       </div>
     </div>
+
+    <!-- 新增客户弹窗 -->
+    <div v-if="showAddModal" class="modal-overlay" @click.self="closeAddModal">
+      <div class="modal card">
+        <div class="modal__header">
+          <div class="modal__title">新增客户</div>
+          <button class="btn-close" type="button" @click="closeAddModal">×</button>
+        </div>
+        <div class="modal__body">
+          <label class="field">
+            <span>客户邮箱：</span>
+            <input v-model="addForm.email" type="email" placeholder="输入客户邮箱" required />
+          </label>
+          <label class="field">
+            <span>品牌：</span>
+            <input v-model="addForm.brand" type="text" placeholder="输入品牌" />
+          </label>
+          <label class="field">
+            <span>标签：</span>
+            <input v-model="addForm.tag" type="text" placeholder="输入标签" />
+          </label>
+          <label class="field">
+            <span>备注：</span>
+            <textarea v-model="addForm.remarks" rows="3" placeholder="输入备注"></textarea>
+          </label>
+          <div class="modal__footer">
+            <button class="btn ghost" type="button" @click="closeAddModal" :disabled="loading">取消</button>
+            <button class="btn primary" type="button" @click="createCustomer" :disabled="loading">
+              {{ loading ? '创建中...' : '确认' }}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -586,7 +703,8 @@ onMounted(() => {
 
 .action-bar {
   display: flex;
-  justify-content: flex-end;
+  justify-content: space-between;
+  align-items: center;
 }
 
 .btn {
