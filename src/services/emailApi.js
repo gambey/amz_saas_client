@@ -1,16 +1,9 @@
 /**
  * 邮箱管理 API 服务
- * 根据 http://localhost:3000/api-docs/#/ 中的实际接口定义进行调整
+ * 根据实际接口定义进行调整
  */
 
-const API_BASE = 'http://localhost:3000'
-const getAuthHeaders = () => {
-  const token = localStorage.getItem('authToken')
-  return {
-    'Content-Type': 'application/json',
-    ...(token && { Authorization: `Bearer ${token}` }),
-  }
-}
+import { API_BASE_URL, getAuthHeaders } from '../config/api.js'
 
 /**
  * 获取邮箱列表
@@ -18,7 +11,7 @@ const getAuthHeaders = () => {
  */
 export const getEmails = async () => {
   try {
-    const resp = await fetch(`${API_BASE}/api/emails`, {
+    const resp = await fetch(`${API_BASE_URL}/api/emails`, {
       method: 'GET',
       headers: getAuthHeaders(),
     })
@@ -43,7 +36,7 @@ export const getEmails = async () => {
  */
 export const createEmail = async (emailData) => {
   try {
-    const resp = await fetch(`${API_BASE}/api/emails`, {
+    const resp = await fetch(`${API_BASE_URL}/api/emails`, {
       method: 'POST',
       headers: getAuthHeaders(),
       body: JSON.stringify({
@@ -73,7 +66,7 @@ export const createEmail = async (emailData) => {
  */
 export const updateEmail = async (id, emailData) => {
   try {
-    const resp = await fetch(`${API_BASE}/api/emails/${id}`, {
+    const resp = await fetch(`${API_BASE_URL}/api/emails/${id}`, {
       method: 'PUT', // 或 PATCH，根据 API 文档调整
       headers: getAuthHeaders(),
       body: JSON.stringify({
@@ -101,7 +94,7 @@ export const updateEmail = async (id, emailData) => {
  */
 export const deleteEmail = async (id) => {
   try {
-    const resp = await fetch(`${API_BASE}/api/emails/${id}`, {
+    const resp = await fetch(`${API_BASE_URL}/api/emails/${id}`, {
       method: 'DELETE',
       headers: getAuthHeaders(),
     })

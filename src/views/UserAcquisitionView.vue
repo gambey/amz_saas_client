@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { getEmails } from '../services/emailApi.js'
+import { API_BASE_URL, getAuthHeaders } from '../config/api.js'
 
 // 获取今日日期字符串 (YYYY-MM-DD)
 const getTodayDate = () => {
@@ -112,13 +113,9 @@ const executeCrawl = async () => {
   loading.value = true
   try {
     // 调用服务端抓取接口
-    const token = localStorage.getItem('authToken')
-    const resp = await fetch('http://localhost:3000/api/email/crawl', {
+    const resp = await fetch(`${API_BASE_URL}/api/email/crawl`, {
       method: 'POST',
-      headers: { 
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json' 
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         email: form.value.email,
         auth_code: selectedAuthCode.value,
@@ -174,7 +171,6 @@ const confirmSave = async () => {
 
   saving.value = true
   try {
-    const token = localStorage.getItem('authToken')
     const customersData = rows.value.map((r) => ({
       email: r.email,
       brand: r.brand || '',
@@ -186,12 +182,9 @@ const confirmSave = async () => {
     console.log('准备入库的数据:', customersData)
     console.log('数据条数:', customersData.length)
 
-    const resp = await fetch('http://localhost:3000/api/customers', {
+    const resp = await fetch(`${API_BASE_URL}/api/customers`, {
       method: 'POST',
-      headers: { 
-        'Content-Type': 'application/json',
-        'Authorization': `Bearer ${token}`,
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(customersData),
     })
 

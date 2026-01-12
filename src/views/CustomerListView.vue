@@ -1,6 +1,7 @@
 <script setup>
 import { ref, computed, onMounted } from 'vue'
 import { getEmails } from '../services/emailApi.js'
+import { API_BASE_URL, getAuthHeaders } from '../config/api.js'
 
 const filters = ref({
   email: '',
@@ -78,13 +79,9 @@ const loadCustomers = async () => {
   loading.value = true
   error.value = ''
   try {
-    const token = localStorage.getItem('authToken')
-    const resp = await fetch('http://localhost:3000/api/customers', {
+    const resp = await fetch(`${API_BASE_URL}/api/customers`, {
       method: 'GET',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
     })
 
     if (!resp.ok) {
@@ -230,13 +227,9 @@ const createCustomer = async () => {
   loading.value = true
   error.value = ''
   try {
-    const token = localStorage.getItem('authToken')
-    const resp = await fetch('http://localhost:3000/api/customers', {
+    const resp = await fetch(`${API_BASE_URL}/api/customers`, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify([{
         email: addForm.value.email,
         brand: addForm.value.brand || '',
@@ -303,7 +296,7 @@ const sendEmail = async () => {
     const recipientEmails = selectedCustomersInfo.value.map((item) => item.email)
     
     // 根据接口文档，发送使用 send
-    const apiUrl = 'http://localhost:3000/api/email/send'
+    const apiUrl = `${API_BASE_URL}/api/email/send`
     
     // 根据接口文档构建请求体，email_list 始终是数组格式
     const requestBody = {
@@ -316,10 +309,7 @@ const sendEmail = async () => {
 
     const resp = await fetch(apiUrl, {
       method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify(requestBody),
     })
 
@@ -350,12 +340,9 @@ const deleteCustomer = async (id) => {
 
   loading.value = true
   try {
-    const token = localStorage.getItem('authToken')
-    const resp = await fetch(`http://localhost:3000/api/customers/${id}`, {
+    const resp = await fetch(`${API_BASE_URL}/api/customers/${id}`, {
       method: 'DELETE',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
+      headers: getAuthHeaders(),
     })
 
     if (!resp.ok) {
@@ -433,13 +420,9 @@ const updateCustomer = async () => {
   loading.value = true
   error.value = ''
   try {
-    const token = localStorage.getItem('authToken')
-    const resp = await fetch(`http://localhost:3000/api/customers/${editForm.value.id}`, {
+    const resp = await fetch(`${API_BASE_URL}/api/customers/${editForm.value.id}`, {
       method: 'PUT',
-      headers: {
-        'Authorization': `Bearer ${token}`,
-        'Content-Type': 'application/json',
-      },
+      headers: getAuthHeaders(),
       body: JSON.stringify({
         email: editForm.value.email,
         brand: editForm.value.brand || '',

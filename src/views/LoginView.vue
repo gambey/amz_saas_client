@@ -1,6 +1,7 @@
 <script setup>
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
+import { API_BASE_URL } from '../config/api.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -23,7 +24,7 @@ const submit = async () => {
 
   loading.value = true
   try {
-    const response = await fetch('http://localhost:3000/api/auth/login', {
+    const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
@@ -69,7 +70,7 @@ const handleEnter = (event) => {
       <div class="login-card__header">
         <div class="logo">AMZ</div>
         <div>
-          <h1>AMZ SaaS 客户系统</h1>
+          <h1>深圳晨羿科技AMZ SaaS 管理系统</h1>
           <p>请输入账号密码登录</p>
         </div>
       </div>

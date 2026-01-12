@@ -9,7 +9,8 @@ const quickStats = [
 
 <template>
   <div class="page">
-    <h2>首页</h2>
+    <h2>首页</h2> 
+    <p class="sub">欢迎登陆深圳晨羿科技AMZ SaaS 管理系统</p>
     <p class="sub">这里是系统概览，可以快速查看关键数据。</p>
     <div class="stats">
       <div v-for="stat in quickStats" :key="stat.label" class="stat card">
