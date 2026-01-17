@@ -6,6 +6,31 @@
 import { API_BASE_URL, getAuthHeaders } from '../config/api.js'
 
 /**
+ * 获取RSA公钥
+ * @returns {Promise<string>} RSA公钥（PEM格式）
+ */
+export const getRSAPublicKey = async () => {
+  try {
+    const resp = await fetch(`${API_BASE_URL}/api/auth/public-key`, {
+      method: 'GET',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+    })
+    if (!resp.ok) {
+      const error = await resp.json().catch(() => ({ message: '获取失败' }))
+      throw new Error(error.message || '获取RSA公钥失败')
+    }
+    const response = await resp.json()
+    // 根据实际 API 响应格式：{ success, message, data: { publicKey, algorithm, keySize, hash } }
+    return response.data?.publicKey || response.data?.public_key || response.publicKey || response.public_key || response.key || response
+  } catch (err) {
+    console.error('getRSAPublicKey error:', err)
+    throw err
+  }
+}
+
+/**
  * 获取当前登录用户信息
  * @returns {Promise<Object>} 当前用户信息
  */

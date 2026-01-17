@@ -2,6 +2,7 @@
 import { ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import { API_BASE_URL } from '../config/api.js'
+import { encryptPasswordWithRSA } from '../utils/security.js'
 
 const router = useRouter()
 const route = useRoute()
@@ -24,12 +25,15 @@ const submit = async () => {
 
   loading.value = true
   try {
+    // 使用RSA公钥加密密码
+    const encryptedPassword = await encryptPasswordWithRSA(form.value.password)
+    
     const response = await fetch(`${API_BASE_URL}/api/auth/login`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         username: form.value.account,
-        password: form.value.password,
+        password: encryptedPassword,
       }),
     })
 
@@ -49,7 +53,7 @@ const submit = async () => {
     localStorage.setItem('authToken', token)
     
     // 保存用户信息
-    // 根据新的返回结构：{ username, password, is_super_admin } 或嵌套在 data 中
+    // 根据返回结构：{ username, password, is_super_admin } 或嵌套在 data 中
     const userInfo = data.user || data.data?.user || {
       username: data.username || form.value.account,
       is_super_admin: data.is_super_admin !== undefined ? data.is_super_admin : (data.data?.is_super_admin !== undefined ? data.data.is_super_admin : 0),

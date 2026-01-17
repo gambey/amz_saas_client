@@ -1,6 +1,7 @@
 <script setup>
 import { ref, onMounted } from 'vue'
 import { getAdmins, createAdmin, changePassword, deleteAdmin } from '../services/adminApi.js'
+import { encryptPasswordWithRSA } from '../utils/security.js'
 
 // 管理员列表
 const admins = ref([])
@@ -122,9 +123,12 @@ const handleAddAdmin = async () => {
 
   loading.value = true
   try {
+    // 使用RSA公钥加密密码
+    const encryptedPassword = await encryptPasswordWithRSA(addForm.value.password)
+    
     await createAdmin({
       username: addForm.value.username,
-      password: addForm.value.password,
+      password: encryptedPassword,
       is_super_admin: addForm.value.is_super_admin,
     })
     message.value = '新增管理员账号成功'
@@ -187,10 +191,13 @@ const handleChangePassword = async () => {
 
   loading.value = true
   try {
+    // 使用RSA公钥加密新密码
+    const encryptedNewPassword = await encryptPasswordWithRSA(passwordForm.value.newPassword)
+    
     await changePassword({
       admin_id: passwordForm.value.adminId,
       username: passwordForm.value.adminUsername,
-      new_password: passwordForm.value.newPassword,
+      new_password: encryptedNewPassword,
     })
     closePasswordModal()
     // 显示 toast 提示
