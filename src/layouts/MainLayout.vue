@@ -1,27 +1,72 @@
 <script setup>
 import { useRoute, useRouter, RouterLink, RouterView } from 'vue-router'
-import { computed } from 'vue'
+import { computed, ref, onMounted } from 'vue'
 
 const router = useRouter()
 const route = useRoute()
 
-const menuItems = [
-  { label: '首页', path: '/app/home' },
-  {
-    label: '客户',
-    children: [
-      { label: '客户列表', path: '/app/customers' },
-      { label: '发送邮件', path: '/app/customers/send-email' },
-    ],
-  },
-  {
-    label: '工具',
-    children: [
-      { label: '用户获取', path: '/app/tools/user-acquisition' },
-      { label: '邮箱管理', path: '/app/tools/email-management' },
-    ],
-  },
-]
+// 获取当前用户信息
+const userInfo = ref({})
+const isSuperAdmin = computed(() => {
+  return userInfo.value.is_super_admin === 1 || userInfo.value.is_super_admin === true
+})
+
+// 加载用户信息
+const loadUserInfo = async () => {
+  try {
+    const stored = localStorage.getItem('userInfo')
+    if (stored) {
+      userInfo.value = JSON.parse(stored)
+    } else {
+      // 如果没有存储的用户信息，尝试从 API 获取
+      const token = localStorage.getItem('authToken')
+      if (token) {
+        try {
+          const { getCurrentUser } = await import('../services/adminApi.js')
+          const currentUser = await getCurrentUser()
+          userInfo.value = currentUser
+          localStorage.setItem('userInfo', JSON.stringify(currentUser))
+        } catch (err) {
+          console.error('获取用户信息失败:', err)
+        }
+      }
+    }
+  } catch (err) {
+    console.error('加载用户信息失败:', err)
+  }
+}
+
+// 菜单项（根据权限动态生成）
+const menuItems = computed(() => {
+  const items = [
+    { label: '首页', path: '/app/home' },
+    {
+      label: '客户',
+      children: [
+        { label: '客户列表', path: '/app/customers' },
+        { label: '发送邮件', path: '/app/customers/send-email' },
+      ],
+    },
+    {
+      label: '工具',
+      children: [
+        { label: '用户获取', path: '/app/tools/user-acquisition' },
+        { label: '邮箱管理', path: '/app/tools/email-management' },
+      ],
+    },
+  ]
+
+  // 仅超级管理员显示管理员管理菜单
+  if (isSuperAdmin.value) {
+    items[2].children.push({ label: '管理员管理', path: '/app/tools/admin-management' })
+  }
+
+  return items
+})
+
+onMounted(() => {
+  loadUserInfo()
+})
 
 const activePath = computed(() => route.path)
 

@@ -47,6 +47,20 @@ const submit = async () => {
     }
 
     localStorage.setItem('authToken', token)
+    
+    // 保存用户信息
+    // 根据新的返回结构：{ username, password, is_super_admin } 或嵌套在 data 中
+    const userInfo = data.user || data.data?.user || {
+      username: data.username || form.value.account,
+      is_super_admin: data.is_super_admin !== undefined ? data.is_super_admin : (data.data?.is_super_admin !== undefined ? data.data.is_super_admin : 0),
+    }
+    
+    // 确保保存的用户信息包含必要字段
+    localStorage.setItem('userInfo', JSON.stringify({
+      username: userInfo.username || data.username || form.value.account,
+      is_super_admin: userInfo.is_super_admin !== undefined ? userInfo.is_super_admin : (data.is_super_admin !== undefined ? data.is_super_admin : 0),
+    }))
+    
     const redirect = route.query.redirect || '/app/home'
     router.push(redirect)
   } catch (err) {
