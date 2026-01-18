@@ -263,6 +263,7 @@ onMounted(() => {
       <div class="table__head">
         <div>序号</div>
         <div>用户名</div>
+        <div>超级管理员</div>
         <div>创建日期</div>
         <div>更新日期</div>
         <div>操作</div>
@@ -271,6 +272,7 @@ onMounted(() => {
         <div v-for="admin in admins" :key="admin.id" class="table__row">
           <div>{{ admin.id }}</div>
           <div>{{ admin.username }}</div>
+          <div>{{ admin.is_super_admin === 1 ? '是' : '否' }}</div>
           <div>{{ formatDate(admin.created_at) }}</div>
           <div>{{ formatDate(admin.updated_at) }}</div>
           <div class="table__actions">
@@ -468,7 +470,7 @@ h2 {
 .table__head,
 .table__row {
   display: grid;
-  grid-template-columns: 80px 1fr 180px 180px 200px;
+  grid-template-columns: 80px 1fr 100px 180px 180px 200px;
   align-items: center;
   padding: 10px 12px;
 }
