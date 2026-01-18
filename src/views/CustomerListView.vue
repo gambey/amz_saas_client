@@ -7,6 +7,7 @@ const filters = ref({
   email: '',
   brand: '',
   tag: '',
+  remarks: '',
 })
 
 const customers = ref([])
@@ -139,7 +140,9 @@ const applyFilters = () => {
       item.brand.toLowerCase().includes(filters.value.brand.toLowerCase())
     const tagMatch = !filters.value.tag || 
       item.tag.toLowerCase().includes(filters.value.tag.toLowerCase())
-    return emailMatch && brandMatch && tagMatch
+    const remarksMatch = !filters.value.remarks || 
+      item.remarks.toLowerCase().includes(filters.value.remarks.toLowerCase())
+    return emailMatch && brandMatch && tagMatch && remarksMatch
   })
 }
 
@@ -479,6 +482,10 @@ onMounted(() => {
         <label class="search-field">
           <span>标签：</span>
           <input v-model="filters.tag" type="text" placeholder="输入标签" @keyup.enter="handleSearch" />
+        </label>
+        <label class="search-field">
+          <span>备注：</span>
+          <input v-model="filters.remarks" type="text" placeholder="输入备注" @keyup.enter="handleSearch" />
         </label>
       </div>
       <div class="search-actions">
