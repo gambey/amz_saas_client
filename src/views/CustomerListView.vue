@@ -113,7 +113,8 @@ const loadCustomers = async () => {
     }
 
     customers.value = list.map((item, idx) => ({
-      id:  idx + 1,
+      index:  idx + 1,
+      id: item.id || '',
       email: item.email || '',
       brand: item.brand || '',
       tag: item.tag || '',
@@ -516,7 +517,7 @@ onMounted(() => {
           <div class="checkbox-cell">
             <input type="checkbox" :checked="selectedCustomers.has(item.id)" @change="toggleSelect(item.id)" />
           </div>
-          <div>{{ item.id }}</div>
+          <div>{{ item.index }}</div>
           <div>{{ item.email }}</div>
           <div>{{ item.brand || '-' }}</div>
           <div>{{ item.tag || '-' }}</div>

@@ -25,6 +25,7 @@ const loading = ref(false)
 const saving = ref(false)
 const message = ref('')
 const error = ref('')
+const loadingMessage = ref('') // loading 提示信息
 
 const rows = ref([])
 const emailList = ref([])
@@ -111,6 +112,7 @@ const executeCrawl = async () => {
     return
   }
   loading.value = true
+  loadingMessage.value = '正在抓取数据，请稍候...'
   try {
     // 调用服务端抓取接口
     const resp = await fetch(`${API_BASE_URL}/api/email/crawl`, {
@@ -153,6 +155,7 @@ const executeCrawl = async () => {
     error.value = '抓取失败，请稍后重试'
   } finally {
     loading.value = false
+    loadingMessage.value = ''
   }
 }
 
@@ -170,6 +173,7 @@ const confirmSave = async () => {
   }
 
   saving.value = true
+  loadingMessage.value = '正在入库数据，请稍候...'
   try {
     const customersData = rows.value.map((r) => ({
       email: r.email,
@@ -214,19 +218,20 @@ const confirmSave = async () => {
     error.value = err.message || '入库失败，请检查接口或重试'
   } finally {
     saving.value = false
+    loadingMessage.value = ''
   }
 }
 </script>
 
 <template>
-  <div class="page">
+  <div class="page" :class="{ 'loading-disabled': loading || saving }">
     <h2>用户获取</h2>
     <div class="form card">
       <div class="form-grid">
         <div class="form-col">
           <label class="field">
             <span>邮箱地址：</span>
-            <select v-model="form.email" :disabled="loadingEmails">
+            <select v-model="form.email" :disabled="loadingEmails || loading || saving">
               <option value="">请选择邮箱</option>
               <option v-for="item in emailList" :key="item.email" :value="item.email">
                 {{ item.email }}
@@ -235,25 +240,25 @@ const confirmSave = async () => {
           </label>
           <label class="field">
             <span>关键词：</span>
-            <input v-model="form.keyword" type="text" placeholder="如：订单、物流、投诉" />
+            <input v-model="form.keyword" type="text" placeholder="如：订单、物流、投诉" :disabled="loading || saving" />
           </label>
           <label class="field">
             <span>标签：</span>
-            <input v-model="form.tag" type="text" placeholder="可选，如 NS 3in1" />
+            <input v-model="form.tag" type="text" placeholder="可选，如 NS 3in1" :disabled="loading || saving" />
           </label>
         </div>
         <div class="form-col">
           <label class="field">
             <span>起始日期：</span>
-            <input v-model="form.startDate" type="date" />
+            <input v-model="form.startDate" type="date" :disabled="loading || saving" />
           </label>
           <label class="field">
             <span>截止日期：</span>
-            <input v-model="form.endDate" type="date" />
+            <input v-model="form.endDate" type="date" :disabled="loading || saving" />
           </label>
           <label class="field">
             <span>品牌：</span>
-            <input v-model="form.brand" type="text" placeholder="可选，如 velolink" />
+            <input v-model="form.brand" type="text" placeholder="可选，如 velolink" :disabled="loading || saving" />
           </label>
         </div>
         <div class="form-actions">
@@ -268,7 +273,7 @@ const confirmSave = async () => {
 
     <div class="table card">
       <div v-if="hasRows" class="table__actions">
-        <button class="btn ghost" type="button" @click="rows = []">清空</button>
+        <button class="btn ghost" type="button" :disabled="loading || saving" @click="rows = []">清空</button>
         <button class="btn primary" type="button" :disabled="saving || loading" @click="confirmSave">
           {{ saving ? '入库中...' : '确认入库' }}
         </button>
@@ -286,10 +291,18 @@ const confirmSave = async () => {
           <div>{{ item.email }}</div>
           <div>{{ item.brand || '-' }}</div>
           <div>{{ item.tag || '-' }}</div>
-          <div class="danger" role="button" tabindex="0" @click="removeRow(item.email)">删除</div>
+          <div class="danger" role="button" tabindex="0" :class="{ 'disabled': loading || saving }" @click="loading || saving ? null : removeRow(item.email)">删除</div>
         </div>
       </div>
       <div v-else class="table__empty">暂无数据</div>
+    </div>
+
+    <!-- Loading 遮罩层 -->
+    <div v-if="loading || saving" class="loading-overlay">
+      <div class="loading-content">
+        <div class="loading-spinner"></div>
+        <div class="loading-text">{{ loadingMessage || (loading ? '正在抓取数据，请稍候...' : '正在入库数据，请稍候...') }}</div>
+      </div>
     </div>
   </div>
 </template>
@@ -416,5 +429,68 @@ const confirmSave = async () => {
   background: #fff3cd;
   color: #7c6f2a;
   border: 1px solid #ffe69c;
+}
+
+/* Loading 遮罩层 */
+.loading-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: grid;
+  place-items: center;
+  z-index: 9999;
+  backdrop-filter: blur(2px);
+}
+
+.loading-content {
+  background: #fff;
+  padding: 32px 40px;
+  border-radius: 12px;
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.2);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  min-width: 200px;
+}
+
+.loading-spinner {
+  width: 48px;
+  height: 48px;
+  border: 4px solid #e5e7eb;
+  border-top-color: #2563eb;
+  border-radius: 50%;
+  animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.loading-text {
+  color: #374151;
+  font-size: 14px;
+  font-weight: 500;
+  text-align: center;
+}
+
+/* Loading 时禁用页面交互 */
+.loading-disabled {
+  pointer-events: none;
+  user-select: none;
+}
+
+.loading-disabled .loading-overlay {
+  pointer-events: auto;
+}
+
+.danger.disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 </style>
