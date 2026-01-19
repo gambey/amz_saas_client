@@ -20,7 +20,8 @@ const loadEmails = async () => {
   try {
     const data = await getEmails()
     rows.value = data.map((item, idx) => ({
-      id:  idx + 1,
+      idx:  idx + 1,
+      id: item.id,
       email: item.email,
       auth_code: item.auth_code || '',
     }))
@@ -150,8 +151,8 @@ onMounted(() => {
         <div>操作</div>
       </div>
       <div v-if="rows.length">
-        <div v-for="item in rows" :key="item.id" class="table__row">
-          <div>{{ item.id }}</div>
+        <div v-for="item in rows" :key="item.idx" class="table__row">
+          <div>{{ item.idx }}</div>
           <div>{{ item.email }}</div>
           <div>{{ item.auth_code ? '******' : '-' }}</div>
           <div class="table__actions">
