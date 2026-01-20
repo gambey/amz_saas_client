@@ -15,6 +15,12 @@ const filteredCustomers = ref([])
 const selectedCustomers = ref(new Set())
 const loading = ref(false)
 const error = ref('')
+
+// 分页相关
+const currentPage = ref(1)
+const pageSize = ref(20) // 每页显示数量，默认与服务器一致
+const totalCount = ref(0) // 服务器返回的总记录数
+const totalPages = ref(1) // 服务器返回的总页数
 const showEmailModal = ref(false)
 const emailForm = ref({
   senderEmail: '',
@@ -75,12 +81,31 @@ const getSenderAuthCode = computed(() => {
   return selected?.auth_code || ''
 })
 
-// 加载客户列表
+// 加载客户列表（支持后端分页）
 const loadCustomers = async () => {
   loading.value = true
   error.value = ''
   try {
-    const resp = await fetch(`${API_BASE_URL}/api/customers`, {
+    // 构建查询参数，包含分页和筛选信息
+    const params = new URLSearchParams()
+    params.append('page', currentPage.value.toString())
+    params.append('pageSize', pageSize.value.toString())
+    
+    // 如果有筛选条件，也传递给后端（如果后端支持）
+    if (filters.value.email) {
+      params.append('email', filters.value.email)
+    }
+    if (filters.value.brand) {
+      params.append('brand', filters.value.brand)
+    }
+    if (filters.value.tag) {
+      params.append('tag', filters.value.tag)
+    }
+    if (filters.value.remarks) {
+      params.append('remarks', filters.value.remarks)
+    }
+
+    const resp = await fetch(`${API_BASE_URL}/api/customers?${params.toString()}`, {
       method: 'GET',
       headers: getAuthHeaders(),
     })
@@ -90,31 +115,41 @@ const loadCustomers = async () => {
       throw new Error(errorData.message || '获取客户列表失败')
     }
 
-    const data = await resp.json()
-    // 支持多种响应格式，确保 list 始终是数组
+    const response = await resp.json()
+    console.log('客户列表原始数据:', response)
+    
+    // 解析响应数据：支持 { success, data: { list, pagination } } 格式
     let list = []
-    if (Array.isArray(data)) {
-      list = data
-    } else if (data && Array.isArray(data.list)) {
-      list = data.list
-    } else if (data && data.data) {
-      if (Array.isArray(data.data)) {
-        list = data.data
-      } else if (data.data.list && Array.isArray(data.data.list)) {
-        list = data.data.list
+    let pagination = null
+    
+    if (response && response.data) {
+      if (Array.isArray(response.data.list)) {
+        list = response.data.list
+      } else if (Array.isArray(response.data)) {
+        list = response.data
       }
+      
+      // 提取分页信息
+      if (response.data.pagination) {
+        pagination = response.data.pagination
+      }
+    } else if (Array.isArray(response)) {
+      list = response
+    } else if (response && Array.isArray(response.list)) {
+      list = response.list
     }
 
-    console.log('客户列表原始数据:', data)
     console.log('解析后的列表:', list)
+    console.log('分页信息:', pagination)
 
     if (!Array.isArray(list)) {
       console.warn('解析后的数据不是数组:', list)
       list = []
     }
 
+    // 更新客户列表
     customers.value = list.map((item, idx) => ({
-      index:  idx + 1,
+      index: (currentPage.value - 1) * pageSize.value + idx + 1, // 基于当前页计算序号
       id: item.id || '',
       email: item.email || '',
       brand: item.brand || '',
@@ -122,16 +157,35 @@ const loadCustomers = async () => {
       add_date: item.add_date || item.addDate || '',
       remarks: item.remarks || item.remark || '',
     }))
+    
+    // 更新分页信息（如果服务器返回了分页信息）
+    if (pagination) {
+      currentPage.value = pagination.page || currentPage.value
+      pageSize.value = pagination.pageSize || pageSize.value
+      totalCount.value = pagination.total || list.length
+      totalPages.value = pagination.totalPages || Math.ceil(totalCount.value / pageSize.value)
+    } else {
+      // 如果没有分页信息，使用当前数据长度（兼容旧格式）
+      totalCount.value = list.length
+      totalPages.value = Math.ceil(totalCount.value / pageSize.value)
+    }
+    
+    // 应用前端筛选（如果后端不支持筛选，则在前端进行筛选）
     applyFilters()
   } catch (err) {
     console.error('加载客户列表失败:', err)
     error.value = err.message || '加载客户列表失败，请稍后重试'
+    customers.value = []
+    totalCount.value = 0
+    totalPages.value = 1
   } finally {
     loading.value = false
   }
 }
 
 // 应用筛选条件（模糊查询）
+// 注意：如果后端支持筛选，筛选应该在 loadCustomers 中通过查询参数传递
+// 这里保留前端筛选作为备用（当后端不支持筛选时）
 const applyFilters = () => {
   filteredCustomers.value = customers.value.filter((item) => {
     const emailMatch = !filters.value.email || 
@@ -146,30 +200,50 @@ const applyFilters = () => {
   })
 }
 
-// 查询
+// 查询（重置到第一页并重新加载数据）
 const handleSearch = () => {
-  applyFilters()
+  currentPage.value = 1
   selectedCustomers.value.clear()
+  loadCustomers() // 重新请求数据，筛选参数会在 loadCustomers 中传递
 }
 
-// 清空筛选
+// 清空筛选（重置到第一页并重新加载数据）
 const handleClear = () => {
-  filters.value = { email: '', brand: '', tag: '' }
-  applyFilters()
+  filters.value = { email: '', brand: '', tag: '', remarks: '' }
+  currentPage.value = 1
   selectedCustomers.value.clear()
+  loadCustomers() // 重新请求数据
 }
 
-// 全选/取消全选
+// 分页相关计算属性（使用服务器返回的分页信息）
+// 注意：由于使用后端分页，当前页的数据就是 customers.value，不需要再次切片
+const paginatedCustomers = computed(() => {
+  // 如果后端支持筛选，直接使用 customers.value
+  // 如果后端不支持筛选，使用前端筛选后的结果
+  return filteredCustomers.value.length > 0 ? filteredCustomers.value : customers.value
+})
+
+const startIndex = computed(() => {
+  if (totalCount.value === 0) return 0
+  return (currentPage.value - 1) * pageSize.value + 1
+})
+
+const endIndex = computed(() => {
+  const end = currentPage.value * pageSize.value
+  return end > totalCount.value ? totalCount.value : end
+})
+
+// 全选/取消全选（基于当前页数据）
 const allSelected = computed(() => {
-  return filteredCustomers.value.length > 0 && 
-    filteredCustomers.value.every((item) => selectedCustomers.value.has(item.id))
+  return paginatedCustomers.value.length > 0 && 
+    paginatedCustomers.value.every((item) => selectedCustomers.value.has(item.id))
 })
 
 const toggleSelectAll = () => {
   if (allSelected.value) {
-    filteredCustomers.value.forEach((item) => selectedCustomers.value.delete(item.id))
+    paginatedCustomers.value.forEach((item) => selectedCustomers.value.delete(item.id))
   } else {
-    filteredCustomers.value.forEach((item) => selectedCustomers.value.add(item.id))
+    paginatedCustomers.value.forEach((item) => selectedCustomers.value.add(item.id))
   }
 }
 
@@ -182,10 +256,43 @@ const toggleSelect = (id) => {
   }
 }
 
-// 获取选中客户信息
+// 获取选中客户信息（从所有筛选后的客户中获取，不仅仅是当前页）
 const selectedCustomersInfo = computed(() => {
   return filteredCustomers.value.filter((item) => selectedCustomers.value.has(item.id))
 })
+
+// 分页导航方法（使用后端分页，需要重新请求数据）
+const goToPage = (page) => {
+  if (page >= 1 && page <= totalPages.value) {
+    currentPage.value = page
+    loadCustomers() // 重新请求数据
+    // 滚动到表格顶部
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+}
+
+const prevPage = () => {
+  if (currentPage.value > 1) {
+    currentPage.value--
+    loadCustomers() // 重新请求数据
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+}
+
+const nextPage = () => {
+  if (currentPage.value < totalPages.value) {
+    currentPage.value++
+    loadCustomers() // 重新请求数据
+    window.scrollTo({ top: 0, behavior: 'smooth' })
+  }
+}
+
+// 改变每页显示数量（需要重新请求数据）
+const changePageSize = (size) => {
+  pageSize.value = size
+  currentPage.value = 1
+  loadCustomers() // 重新请求数据
+}
 
 // 获取选中客户的品牌和标签（用于显示在弹窗中）
 const selectedBrand = computed(() => {
@@ -518,9 +625,9 @@ onMounted(() => {
         <div>操作</div>
       </div>
       <div v-if="loading" class="table__loading">加载中...</div>
-      <div v-else-if="filteredCustomers.length === 0" class="table__empty">暂无数据</div>
+      <div v-else-if="paginatedCustomers.length === 0" class="table__empty">暂无数据</div>
       <div v-else>
-        <div v-for="item in filteredCustomers" :key="item.id" class="table__row">
+        <div v-for="item in paginatedCustomers" :key="item.id" class="table__row">
           <div class="checkbox-cell">
             <input type="checkbox" :checked="selectedCustomers.has(item.id)" @change="toggleSelect(item.id)" />
           </div>
@@ -535,6 +642,62 @@ onMounted(() => {
             <span class="action-link" @click="openEditModal(item)">编辑</span>
             <span class="action-link" @click="sendEmailToCustomer(item)">发送邮件</span>
           </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 分页控件 -->
+    <div v-if="!loading && totalCount > 0" class="pagination card">
+      <div class="pagination__info">
+        <span>共 {{ totalCount }} 条记录</span>
+        <span>显示 {{ startIndex }}-{{ endIndex }} 条</span>
+        <label class="pagination__size">
+          <span>每页显示：</span>
+          <select v-model.number="pageSize" @change="changePageSize(pageSize)">
+            <option :value="10">10</option>
+            <option :value="20">20</option>
+            <option :value="50">50</option>
+            <option :value="100">100</option>
+          </select>
+        </label>
+      </div>
+      <div class="pagination__controls">
+        <button 
+          class="pagination__btn" 
+          :disabled="currentPage === 1" 
+          @click="prevPage"
+        >
+          上一页
+        </button>
+        <div class="pagination__pages">
+          <button
+            v-for="page in totalPages"
+            :key="page"
+            class="pagination__page"
+            :class="{ active: page === currentPage }"
+            @click="goToPage(page)"
+          >
+            {{ page }}
+          </button>
+        </div>
+        <button 
+          class="pagination__btn" 
+          :disabled="currentPage === totalPages || totalPages === 0" 
+          @click="nextPage"
+        >
+          下一页
+        </button>
+        <div class="pagination__jump">
+          <span>跳转到</span>
+          <input 
+            type="number" 
+            :min="1" 
+            :max="totalPages" 
+            v-model.number="currentPage"
+            @keyup.enter="goToPage(currentPage)"
+            class="pagination__input"
+          />
+          <span>页</span>
         </div>
       </div>
     </div>
@@ -745,7 +908,7 @@ onMounted(() => {
 .table__head,
 .table__row {
   display: grid;
-  grid-template-columns: 50px 60px 1.8fr 1fr 1fr 120px 1fr 180px;
+  grid-template-columns: 50px 60px 1.5fr 0.8fr 0.8fr 180px 1fr 180px;
   align-items: center;
   padding: 10px 12px;
 }
@@ -915,5 +1078,152 @@ onMounted(() => {
   margin-top: 8px;
   padding-top: 16px;
   border-top: 1px solid #e5e7eb;
+}
+
+/* 分页样式 */
+.pagination {
+  padding: 16px 20px;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 16px;
+}
+
+.pagination__info {
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.pagination__size {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.pagination__size select {
+  padding: 6px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  cursor: pointer;
+  font-size: 14px;
+}
+
+.pagination__size select:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+.pagination__controls {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+
+.pagination__btn {
+  padding: 8px 16px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #111827;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+}
+
+.pagination__btn:hover:not(:disabled) {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.pagination__btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.pagination__pages {
+  display: flex;
+  gap: 4px;
+}
+
+.pagination__page {
+  min-width: 36px;
+  height: 36px;
+  padding: 0 8px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  color: #111827;
+  cursor: pointer;
+  font-size: 14px;
+  font-weight: 500;
+  transition: all 0.2s ease;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.pagination__page:hover {
+  background: #f3f4f6;
+  border-color: #d1d5db;
+}
+
+.pagination__page.active {
+  background: linear-gradient(135deg, #2563eb, #3b82f6);
+  color: #fff;
+  border-color: #2563eb;
+}
+
+.pagination__jump {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  color: #6b7280;
+  font-size: 14px;
+}
+
+.pagination__input {
+  width: 60px;
+  padding: 6px 10px;
+  border: 1px solid #e5e7eb;
+  border-radius: 6px;
+  background: #fff;
+  text-align: center;
+  font-size: 14px;
+}
+
+.pagination__input:focus {
+  outline: none;
+  border-color: #2563eb;
+  box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.1);
+}
+
+@media (max-width: 768px) {
+  .pagination {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  
+  .pagination__info {
+    justify-content: space-between;
+    width: 100%;
+  }
+  
+  .pagination__controls {
+    justify-content: center;
+    width: 100%;
+  }
+  
+  .pagination__pages {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
 }
 </style>

@@ -263,7 +263,7 @@ const confirmSave = async () => {
         </div>
         <div class="form-actions">
           <button class="btn primary" type="button" :disabled="loading" @click="executeCrawl">
-            {{ loading ? '抓取中...' : '执行抓取' }}
+            {{ loading ? '数据同步中...' : '同步数据' }}
           </button>
         </div>
       </div>

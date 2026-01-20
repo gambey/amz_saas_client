@@ -83,7 +83,7 @@ const isActive = (path) => activePath.value.startsWith(path)
     <aside class="sidebar card">
       <div class="brand">
         <div class="brand__logo">AMZ</div>
-        <div class="brand__name">SaaS Client</div>
+        <div class="brand__name">晨羿科技AMZ管理系统</div>
       </div>
       <nav class="menu">
         <template v-for="item in menuItems" :key="item.path || item.label">
