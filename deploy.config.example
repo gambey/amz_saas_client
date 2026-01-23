@@ -1,0 +1,15 @@
+# 部署配置示例文件
+# 复制此文件为 .env.deploy 并填写实际配置信息
+# .env.deploy 文件已添加到 .gitignore，不会被提交到 Git
+
+# 服务器 IP 地址
+DEPLOY_SERVER_IP=47.252.8.184
+
+# 服务器用户名
+DEPLOY_SERVER_USER=root
+
+# 服务器密码
+DEPLOY_SERVER_PASSWORD=made95-Dare-
+
+# 服务器部署路径
+DEPLOY_SERVER_PATH=/www/wwwroot/www.bestswitch2dock.xyz/dist
